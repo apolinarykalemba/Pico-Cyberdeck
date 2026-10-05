@@ -1,6 +1,6 @@
 # Pico-Cyberdeck
 RaspberyPico2W computer with keyboard, LoRa, Wifi, 3.5 inch touch screen, GPS, SD card. LoRa, sound. 
-Dimensions 10x12x2.5cm.
+Dimensions  less as 10x12x2.5cm.
 # PicoDeck
 ![PicoDeck](IMG_20261005_202137_198.jpg)
 **PicoDeck** is a portable, multifunctional "cyberdeck" computer built around the **Raspberry Pi Pico 2 W** microcontroller.
