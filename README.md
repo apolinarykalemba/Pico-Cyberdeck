@@ -25,7 +25,7 @@ All functions utilize a shared user interface and the same hardware platform.
 
 The system is based on the **Raspberry Pi Pico 2 W**, featuring components such as:
 
-* a 480×320 color TFT screen,
+* a 480×320 color TFT touch-sensitive screen,ST7796.
 * a physical keyboard,
 * an SD card for data storage,
 * a LoRa module,
