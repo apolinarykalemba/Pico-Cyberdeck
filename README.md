@@ -17,7 +17,7 @@ A single device can perform various functions depending on the selected operatin
 * **PicoNavi / PicoMap** – GPS, positioning, heading, distance, and maps,
 * **PicoRadio** – internet radio streaming via Wi-Fi,
 * **PicoGame** – simple entertainment features,
-* and additional modules to be developed in the future.
+* and additional modules to be developed in the future for example multiband radio.
 
 All functions utilize a shared user interface and the same hardware platform.
 
