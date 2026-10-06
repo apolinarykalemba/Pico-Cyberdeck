@@ -48,7 +48,7 @@ A key component of PicoDeck is **PicoMesh**—a proprietary communication networ
 
 It enables:
 
-*   sending and receiving messages,
+*   sending resending and receiving messages,
 *   device-to-device communication without internet infrastructure,
 *   message relaying across multiple nodes,
 *   identification of other devices,
