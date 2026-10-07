@@ -1,0 +1,325 @@
+===============================================================
+DOOMSDAY COMMUNICATOR – DOCUMENTATION
+(Technical description of the protocol, architecture, and operation
+of the PicoMesh network – a decentralized LoRa network)
+===============================================================
+
+1. INTRODUCTION – SYSTEM PURPOSE AND CONCEPT
+---------------------------------------------------------------
+In crisis situations—such as infrastructure failures, natural
+disasters, power outages, or conflicts—traditional communication
+systems may cease to function. Cellular networks, the Internet,
+and even local radio networks can become overloaded or destroyed.
+
+The Doomsday Communicator (PicoMesh) was designed as a
+decentralized, resilient, and democratic communication network
+operating entirely independently of external infrastructure.
+Every node is equal; any node can transmit and relay packets,
+and the network has no single point of failure.
+
+The system utilizes LoRa (SX1262) to build a lightweight mesh
+network in which packets are relayed between nodes using a
+flooding method with TTL control. This allows the network to
+operate even with a minimal number of nodes, while its topology
+can change dynamically without loss of functionality.
+
+The system's objectives are:
+- enabling text-based communication in the absence of infrastructure,
+- automatic packet relay between nodes,
+- broadcasting GPS positions and node status,
+- resilience against failures and attacks,
+- full decentralization and the absence of central control,
+- minimal energy consumption,
+- maximum simplicity of implementation. 
+===============================================================
+SYSTEM ARCHITECTURE
+===============================================================
+
+2. GENERAL ARCHITECTURE
+---------------------------------------------------------------
++------------------------------------------------------+
+| USER APPLICATION                     |
+| - text messages                                     |
+| - commands                                          |
+| - node list display                                 |
++------------------------------------------------------+
+| MESH PROTOCOL (LOGIC)                |
+| - MSG / ACK / BEA / CMD                             |
+| - TTL, hops                                         |
+| - anti-duplication                                  |
+| - retry with backoff                                |
+| - forwarding                                        |
++------------------------------------------------------+
+| TRANSMISSION LAYER                   |
+| - TX queue with priorities                          |
+| - 1 Hz scheduler                                    |
+| - LoRa SX1262                                       |
++------------------------------------------------------+
+| HARDWARE                             |
+| - RP2040                                            |
+| - SX1262                                            |
+| - GPS                                               |
+| - TFT                                               |
++------------------------------------------------------+
+===============================================================
+PACKET FORMAT AND PROTOCOL
+===============================================================
+
+3. PACKET FORMAT
+---------------------------------------------------------------
+The packet is text-based, debuggable, and easy to parse:
+
+type|src|dst|mid|ttl|data
+
+Example:
+MSG|N001|N005|312|5|Hello, are you there?
+
+Packet types:
+- MSG – text message,
+- ACK – acknowledgment,
+- BEA – beacon with GPS/battery info,
+- CMD – control commands.
+
+
+===============================================================
+PACKET PROCESSING – processPacket()
+===============================================================
+
+4. processPacket() FUNCTION
+---------------------------------------------------------------
+void processPacket(String pkt) {
+pkt.trim(); 
+// ... field parsing ...
+if (inCache(src, mid)) return; 
+addCache(src, mid); 
+updateNode(...); 
+
+if (dst != NODE_ID && ttl > 0) {
+ttl--; 
+forwardPacket(...); 
+return; 
+}
+
+if (type == "MSG") { ... }
+if (type == "ACK") { ... }
+if (type == "BEA") { ... }
+if (type == "CMD") { ... }
+}
+
+The function performs:
+1. Packet validation
+2. Anti-duplication
+3. nodeList update
+4. Packet forwarding
+5. MSG/ACK/BEA/CMD handling
+
+
+===============================================================
+ANTI-DUPLICATION – CACHE
+===============================================================
+
+5. DUPLICATE CACHE
+---------------------------------------------------------------
+bool inCache(String src, int mid);
+void addCache(String src, int mid);
+
+The cache stores the (src, mid) of recent packets. Objective:
+- preventing packet looping,
+- limiting network traffic,
+- stabilizing mesh flooding.
+===============================================================
+RETRANSMISSIONS – pendingRetries
+===============================================================
+
+6. RETRY MECHANISM
+---------------------------------------------------------------
+void addPendingRetry(Packet p);
+void checkPendingRetries();
+void removePendingByMID(int mid);
+
+The mechanism ensures reliability:
+- MSG is added to pendingRetries,
+- if no ACK arrives → retry,
+- retry includes jitter to avoid collisions,
+- packet is dropped after MAX_MSG_RETRIES.
+
+
+===============================================================
+TX QUEUE WITH PRIORITIES (1–5)
+===============================================================
+
+7. TRANSMISSION PRIORITIES
+---------------------------------------------------------------
+Priorities:
+1. ACK
+2. MSG in retry
+3. Forward
+4. New MSG
+5. BEA
+
+Packet selection:
+bool selectPacketForTx(Packet &out);
+
+Transmission:
+void sendFromQueue() {
+Packet p; 
+if (!selectPacketForTx(p)) return; 
+
+String pkt = p.type + "|" + p.src + "|" + p.dst + "|" +
+String(p.mid) + "|" + String(p.ttl) + "|" + p.data; 
+
+LoRa.beginPacket(); 
+LoRa.print(pkt); 
+LoRa.endPacket(); 
+LoRa.receive();
+}
+
+
+===============================================================
+1 Hz SCHEDULER – DETERMINISTIC TX
+===============================================================
+
+8. SCHEDULER
+---------------------------------------------------------------
+static unsigned long lastTx = 0;
+if (millis() - lastTx >= 1000) {
+sendFromQueue(); 
+lastTx = millis();
+}
+
+Advantages:
+- collision minimization,
+- predictable load,
+- mesh stability,
+- no need for CAD.
+===============================================================
+BEACON – sendBEA()
+===============================================================
+
+9. BEACON
+---------------------------------------------------------------
+bea.data = "BAT=" + String(bat,1) +
+";LAT=" + String(lat,6) +
+";LON=" + String(lon,6) +
+";ALT=" + String(alt,1);
+
+Purpose:
+- broadcasting GPS position,
+- updating nodeList,
+- building the network map.
+
+
+===============================================================
+NODE TABLE – nodeList
+===============================================================
+
+10. nodeList
+---------------------------------------------------------------
+void updateNode(String id, int hops, float lat, float lon, float alt, float bat, int rssi);
+
+Stores:
+- ID,
+- time of last contact,
+- hop count,
+- position,
+- battery level,
+- RSSI.
+
+
+===============================================================
+MAIN LOOP – loop()
+===============================================================
+
+11. loop()
+---------------------------------------------------------------
+void loop() {
+// GPS
+// RX
+// retry
+// TX scheduler
+// BEA
+// test MSG
+// UI
+}
+
+The loop is non-blocking, deterministic, and resilient to overload.
+
+
+===============================================================
+FLOW DIAGRAM – MSG → ACK → RETRY
+===============================================================
+
+12. FLOW DIAGRAM
+---------------------------------------------------------------
++-----------------------+
+| START LOOP           |
++-----------------------+
+| 
+v
++-----------------------+
+| checkForRequest()     |
+| - packet reception    |
+| - processPacket()     |
++-----------------------+
+| 
+v
++-----------------------+
+| checkPendingRetries() |
+| - retry MSG           |
+| - backoff             |
++-----------------------+
+| 
+v
++-----------------------+
+| TX scheduler (1 Hz)   | | sendFromQueue() |
++-----------------------+ 
+| 
+v
++-----------------------+
+| sendBEA() |
++-----------------------+ 
+| 
+v
++-----------------------+
+| END LOOP |
++-----------------------+
+===============================================================
+RESILIENCE TO FAILURES AND ATTACKS
+===============================================================
+
+13. SYSTEM RESILIENCE
+---------------------------------------------------------------
+1. No single point of failure
+The network is fully decentralized.
+
+2. Censorship resistance
+No server → no single point to block.
+
+3. Jamming resistance
+LoRa (CSS) is resistant to wideband interference.
+
+4. Node takeover resistance
+Compromising a single device does not grant control over the network.
+
+5. Topology failure resilience
+Mesh flooding + TTL ensure redundancy.
+
+6. Power failure resilience
+Nodes can operate on battery power or solar panels.
+
+
+===============================================================
+SUMMARY
+===============================================================
+
+14. SUMMARY
+---------------------------------------------------------------
+The PicoMesh system is a lightweight, resilient text
+communication protocol based on LoRa. Thanks to its simplicity,
+deterministic scheduler, TX priorities, retries with
+backoff, and full decentralization, the system can operate
+without infrastructure, serving as an independent
+communication network highly resistant to interference
+and attacks.
+
+This is not a toy—it is a real-world crisis communication system.
