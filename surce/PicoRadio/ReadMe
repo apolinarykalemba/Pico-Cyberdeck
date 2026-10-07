@@ -1,2 +1,2 @@
 Simple WiFiRadio is using Wifi and SD card to read station menu. Using another metode to read keyboard. 
-File: station.txt is reding from Sd card if is not on card, Radio is using station list from memory.
+File: station.txt is reding from Sd card if is not on card radio is using station list from memory.
